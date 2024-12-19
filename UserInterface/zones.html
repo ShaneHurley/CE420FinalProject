@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zones</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        .zone-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px auto;
+            width: 300px;
+        }
+        button {
+            padding: 10px 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .navigation-container {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Zone Toggles</h1>
+    <div class="zone-buttons">
+        <button id="zone1">Zone 1 OFF</button>
+        <button id="zone2">Zone 2 OFF</button>
+        <button id="zone3">Zone 3 OFF</button>
+        <button id="zone4">Zone 4 OFF</button>
+        <button id="zone5">Zone 5 OFF</button>
+        <button id="zone6">Zone 6 OFF</button>
+        <button id="zone7">Zone 7 OFF</button>
+        <button id="zone8">Zone 8 OFF</button>
+        <button id="zone9">Zone 9 OFF</button>
+    </div>
+    <div class="navigation-container">
+        <button id="returnButton">Return</button>
+    </div>
+
+    <script>
+        for (let i = 1; i <= 9; i++) {
+            const zoneButton = document.getElementById(`zone${i}`);
+            let isOn = false;
+            zoneButton.addEventListener('click', () => {
+                isOn = !isOn;
+                zoneButton.textContent = `Zone ${i} ${isOn ? 'ON' : 'OFF'}`;
+            });
+        }
+
+        document.getElementById('returnButton').addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>

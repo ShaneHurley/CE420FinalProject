@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electron Toggle with Slider</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        .toggle-container, .slider-container, .navigation-container {
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .slider-container input[type="range"] {
+            width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Toggle and Moisture Sensor Multiplier</h1>
+    <div class="toggle-container">
+        <button id="toggleButton">OFF</button>
+    </div>
+    <div class="slider-container">
+        <label for="moistureSlider">Moisture Sensor Multiplier:</label>
+        <input id="moistureSlider" type="range" min="0" max="2" step="0.01" value="1">
+        <span id="sliderValue">1.00</span>
+    </div>
+    <div class="navigation-container">
+        <button id="zonesButton">Go to Zones</button>
+    </div>
+
+    <script>
+        const toggleButton = document.getElementById('toggleButton');
+        const moistureSlider = document.getElementById('moistureSlider');
+        const sliderValue = document.getElementById('sliderValue');
+        const zonesButton = document.getElementById('zonesButton');
+        
+        let isOn = false;
+
+        toggleButton.addEventListener('click', () => {
+            isOn = !isOn;
+            toggleButton.textContent = isOn ? 'ON' : 'OFF';
+        });
+
+        moistureSlider.addEventListener('input', () => {
+            sliderValue.textContent = parseFloat(moistureSlider.value).toFixed(2);
+        });
+
+        zonesButton.addEventListener('click', () => {
+            window.location.href = 'zones.html';
+        });
+    </script>
+</body>
+</html>
