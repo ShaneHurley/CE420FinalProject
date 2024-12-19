@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Electron Toggle with Slider</title>
+    <title>Web Toggle with Slider</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
             padding: 20px;
         }
-        .toggle-container, .slider-container, .navigation-container {
+        .toggle-container, .slider-container, .navigation-container, .system-container, .zone-input-container {
             margin-top: 20px;
         }
         button {
@@ -18,44 +18,97 @@
             font-size: 16px;
             cursor: pointer;
         }
+        .selected {
+            background-color: lightblue;
+        }
         .slider-container input[type="range"] {
             width: 300px;
+        }
+        .hidden {
+            display: none;
         }
     </style>
 </head>
 <body>
     <h1>Toggle and Moisture Sensor Multiplier</h1>
+
     <div class="toggle-container">
         <button id="toggleButton">OFF</button>
     </div>
+
     <div class="slider-container">
         <label for="moistureSlider">Moisture Sensor Multiplier:</label>
         <input id="moistureSlider" type="range" min="0" max="2" step="0.01" value="1">
         <span id="sliderValue">1.00</span>
     </div>
-    <div class="navigation-container">
-        <button id="zonesButton">Go to Zones</button>
+
+    <div class="system-container">
+        <h2>Select System</h2>
+        <button class="system-button" id="demoButton">Demo</button>
+        <button class="system-button" id="wifiButton">WiFi System</button>
+        <button class="system-button" id="analogButton">Analog System</button>
+    </div>
+
+    <div class="zone-input-container">
+        <label for="zoneInput">Number of Zones (1-9):</label>
+        <input type="number" id="zoneInput" min="1" max="9" value="3">
+        <button id="saveZonesButton">Save Zones</button>
+    </div>
+
+    <div class="navigation-container hidden" id="zonesNavigation">
+        <a href="zones.html"><button>Go to Zones</button></a>
     </div>
 
     <script>
         const toggleButton = document.getElementById('toggleButton');
         const moistureSlider = document.getElementById('moistureSlider');
         const sliderValue = document.getElementById('sliderValue');
-        const zonesButton = document.getElementById('zonesButton');
-        
+        const systemButtons = document.querySelectorAll('.system-button');
+        const saveZonesButton = document.getElementById('saveZonesButton');
+        const zoneInput = document.getElementById('zoneInput');
+        const zonesNavigation = document.getElementById('zonesNavigation');
+
         let isOn = false;
 
+        // Load saved zone count on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedZoneCount = localStorage.getItem('zoneCount');
+            if (savedZoneCount) {
+                zoneInput.value = savedZoneCount;
+                zonesNavigation.classList.remove('hidden');
+            }
+        });
+
+        // Toggle button functionality
         toggleButton.addEventListener('click', () => {
             isOn = !isOn;
             toggleButton.textContent = isOn ? 'ON' : 'OFF';
         });
 
+        // Slider functionality
         moistureSlider.addEventListener('input', () => {
             sliderValue.textContent = parseFloat(moistureSlider.value).toFixed(2);
         });
 
-        zonesButton.addEventListener('click', () => {
-            window.location.href = 'zones.html';
+        // System selection functionality
+        systemButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                systemButtons.forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+            });
+        });
+
+        // Save zones and show navigation button
+        saveZonesButton.addEventListener('click', () => {
+            const zoneCount = parseInt(zoneInput.value);
+            if (zoneCount >= 1 && zoneCount <= 9) {
+                localStorage.setItem('zoneCount', zoneCount);
+                alert(`Saved ${zoneCount} zones.`);
+                zonesNavigation.classList.remove('hidden');
+            } else {
+                alert('Please enter a number between 1 and 9.');
+                zonesNavigation.classList.add('hidden');
+            }
         });
     </script>
 </body>

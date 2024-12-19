@@ -29,33 +29,38 @@
 </head>
 <body>
     <h1>Zone Toggles</h1>
-    <div class="zone-buttons">
-        <button id="zone1">Zone 1 OFF</button>
-        <button id="zone2">Zone 2 OFF</button>
-        <button id="zone3">Zone 3 OFF</button>
-        <button id="zone4">Zone 4 OFF</button>
-        <button id="zone5">Zone 5 OFF</button>
-        <button id="zone6">Zone 6 OFF</button>
-        <button id="zone7">Zone 7 OFF</button>
-        <button id="zone8">Zone 8 OFF</button>
-        <button id="zone9">Zone 9 OFF</button>
+    <div class="zone-buttons" id="zoneButtons">
+        <!-- Zone buttons will be generated dynamically -->
     </div>
     <div class="navigation-container">
-        <button id="returnButton">Return</button>
+        <a href="index.html"><button>Return</button></a>
     </div>
 
     <script>
-        for (let i = 1; i <= 9; i++) {
-            const zoneButton = document.getElementById(`zone${i}`);
-            let isOn = false;
-            zoneButton.addEventListener('click', () => {
-                isOn = !isOn;
-                zoneButton.textContent = `Zone ${i} ${isOn ? 'ON' : 'OFF'}`;
-            });
-        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const maxZones = parseInt(localStorage.getItem('zoneCount'));
 
-        document.getElementById('returnButton').addEventListener('click', () => {
-            window.location.href = 'index.html';
+            if (!maxZones || maxZones < 1 || maxZones > 9) {
+                alert('Please set the number of zones on the main page first.');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const zoneButtonsContainer = document.getElementById('zoneButtons');
+            
+            for (let i = 1; i <= maxZones; i++) {
+                const button = document.createElement('button');
+                button.id = `zone${i}`;
+                button.textContent = `Zone ${i} OFF`;
+                let isOn = true;
+
+                button.addEventListener('click', () => {
+                    isOn = !isOn;
+                    button.textContent = `Zone ${i} ${isOn ? 'ON' : 'OFF'}`;
+                });
+
+                zoneButtonsContainer.appendChild(button);
+            }
         });
     </script>
 </body>

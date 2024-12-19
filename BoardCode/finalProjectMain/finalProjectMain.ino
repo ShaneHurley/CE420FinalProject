@@ -1,5 +1,7 @@
 #include <WiFi.h>
+#include <WiFiClient.h>
 #include <Arduino_JSON.h>
+#include "ArduinoLowPower.h"
 
 // Wi-Fi credentials
 //const char* ssid = "KULABS";
@@ -17,12 +19,14 @@
 const char* ssid = "iPhone";
 const char* password = "Shaner04";
 
+IPAddress ip; 
+
 // Define the server URL you want to connect to
 const char* server = "weather.shanehurley.com";
 const int port = 8000;
 const int zipcode = 48504;
 
-const int Value_dry = 580; 
+const int Value_dry = 580;
 const int Value_wet = 280;
 
 struct Averages {
@@ -30,6 +34,8 @@ struct Averages {
   float avgMinTemp;
   float avgPrecipitation;
 };
+
+float zonePercent[9];
 
 WiFiClient client;
 
@@ -41,9 +47,16 @@ void setup() {
   connectToWiFi();
 
   // Connect to the server and fetch JSON data
-  String serverData = connectToServer(server, port, zipcode);
+  int zipCode = getZipCode();
+  if (zipCode != -1) {
+    Serial.print("ZIP Code: ");
+    Serial.println(zipCode);
+  } else {
+    Serial.println("Failed to retrieve ZIP code");
+  }
+  String serverData = connectToServer(server, port, zipCode);
   Serial.println("Received JSON data:");
-  
+
 
   // Parse the received JSON data
   JSONVar jsonData = JSON.parse(serverData);
@@ -63,36 +76,42 @@ void setup() {
   Averages forecastAverages = calculateAverages(weeklyForecast);
 
   Serial.println("Historical Averages:");
-  Serial.print("Avg Max Temp: "); Serial.println(historicalAverages.avgMaxTemp);
-  Serial.print("Avg Min Temp: "); Serial.println(historicalAverages.avgMinTemp);
-  Serial.print("Avg Precipitation: "); Serial.println(historicalAverages.avgPrecipitation);
+  Serial.print("Avg Max Temp: ");
+  Serial.println(historicalAverages.avgMaxTemp);
+  Serial.print("Avg Min Temp: ");
+  Serial.println(historicalAverages.avgMinTemp);
+  Serial.print("Avg Precipitation: ");
+  Serial.println(historicalAverages.avgPrecipitation);
 
   Serial.println("\nForecast Averages:");
-  Serial.print("Avg Max Temp: "); Serial.println(forecastAverages.avgMaxTemp);
-  Serial.print("Avg Min Temp: "); Serial.println(forecastAverages.avgMinTemp);
-  Serial.print("Avg Precipitation: "); Serial.println(forecastAverages.avgPrecipitation);
-
+  Serial.print("Avg Max Temp: ");
+  Serial.println(forecastAverages.avgMaxTemp);
+  Serial.print("Avg Min Temp: ");
+  Serial.println(forecastAverages.avgMinTemp);
+  Serial.print("Avg Precipitation: ");
+  Serial.println(forecastAverages.avgPrecipitation);
 }
 
 void loop() {
-  SensorValue = analogRead(A0);
-  Serial.print("Sensor Value: "); Serial.println(SensorValue);
-  MoisturePercent = map(SensorValue, Value_dry, Value_wet, 0, 100);
-  if(MoisturePercent > 100) //correct the percentage to 100% if read over 100.
+  int SensorValue = analogRead(A0);
+  Serial.print("Sensor Value: ");
+  Serial.println(SensorValue);
+  float MoisturePercent = map(SensorValue, Value_dry, Value_wet, 0, 100);
+  if (MoisturePercent > 100)  //correct the percentage to 100% if read over 100.
   {
-  Serial.print("Moisture Percent: "); Serial.println("100 %");
+    Serial.print("Moisture Percent: ");
+    Serial.println("100 %");
+  } else if (MoisturePercent < 0)  //correct the percentage to 0% if read less than 0.
+  {
+    Serial.print("Moisture Percent: ");
+    Serial.println("0 %");
+  } else {
+    Serial.print("Moisture Percent: ");
+    Serial.print(MoisturePercent);
+    Serial.println("%");
+    delay(250);
   }
-  else if(MoisturePercent <0) //correct the percentage to 0% if read less than 0.
-  {
-  Serial.print("Moisture Percent: "); Serial.println("0 %");
-  }
-  else
-  {
-  Serial.print("Moisture Percent: "); Serial.print(MoisturePercent);
-  Serial.println("%");
-  delay(250);
-  } 
-  LowPower.deepSleep(50000);
+  delay(30000);
 }
 
 void connectToWiFi() {
@@ -111,7 +130,7 @@ void connectToWiFi() {
 }
 
 String connectToServer(const char* server, int port, int zipcode) {
-  
+
   if (client.connect(server, port)) {
     Serial.println("Connected to server");
 
@@ -140,14 +159,14 @@ String connectToServer(const char* server, int port, int zipcode) {
     // Extract JSON payload from the HTTP response
     int jsonStart = response.indexOf("\r\n\r\n");
     if (jsonStart != -1) {
-      return response.substring(jsonStart + 4); // Return the JSON part
+      return response.substring(jsonStart + 4);  // Return the JSON part
     } else {
       Serial.println("Failed to parse response");
       return "{}";
     }
   } else {
     Serial.println("Connection to server failed");
-    return "{}"; // Return empty JSON if connection fails
+    return "{}";  // Return empty JSON if connection fails
   }
 }
 
@@ -172,6 +191,53 @@ Averages calculateAverages(JSONVar weatherData) {
   return result;
 }
 
+//float[] zoneCalculator(JSONVar weatherData, Zones current){
+
+//}
+int getZipCode() {
+  if (client.connect("ip-api.com", 80)) {
+    Serial.println("Connected to IP Geolocation API via HTTP");
+
+    // Send the HTTP request
+    client.println("GET /json HTTP/1.1");
+    client.println("Host: ip-api.com");
+    client.println("Connection: close");
+    client.println();
+
+    // Wait for the response
+    String response = "";
+    unsigned long timeout = millis();
+    while (client.connected() && millis() - timeout < 5000) { // 5-second timeout
+      while (client.available()) {
+        char c = client.read();
+        response += c;
+      }
+    }
+
+    client.stop(); // Close the connection
+
+    // Parse the response for the ZIP code
+    Serial.println("Response:");
+    Serial.println(response);
+
+    int zipIndex = response.indexOf('"zip"');
+    if (zipIndex != -1) {
+      int start = response.indexOf("zip") + 6; // Start of ZIP code
+      int end = start+5;             // End of ZIP code
+      Serial.println(start);
+      Serial.println(end);
+      String zipCode = response.substring(start, end);     // Extract the ZIP code
+      Serial.println("ZIP Code: " + zipCode);
+      return zipCode.toInt();                              // Convert to integer
+    } else {
+      Serial.println("ZIP code not found in the response.");
+      return -1;
+    }
+  } else {
+    Serial.println("Connection to ip-api.com failed.");
+    return -1;
+  }
+}
 
 
 
