@@ -8,40 +8,65 @@
 //const char* password = "WHX434][{c";
 
 // Wi-Fi credentials
-//const char* ssid = "Delts";
-//const char* password = "1210Dupont";
+const char* ssid = "Delts";
+const char* password = "1210Dupont";
+
+const bool demo = true;
 
 // Wi-Fi credentials
 //const char* ssid = "HurleyHome";
 //const char* password = "collinallisonshane";
 
 // Wi-Fi credentials
-const char* ssid = "iPhone";
-const char* password = "Shaner04";
+//const char* ssid = "iPhone";
+//const char* password = "Shaner04";
+
+const int outputPins[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
 IPAddress ip; 
 
-// Define the server URL you want to connect to
 const char* server = "weather.shanehurley.com";
 const int port = 8000;
-const int zipcode = 48504;
 
 const int Value_dry = 580;
 const int Value_wet = 280;
 
+JSONVar systemTypes = JSONVar();
+
 struct Averages {
   float avgMaxTemp;
   float avgMinTemp;
-  float avgPrecipitation;
+  float precipitation;
 };
+
+const int SprinklerTime = 100000;
 
 float zonePercent[9];
 
+
 WiFiClient client;
+Averages historicalAverages;
+JSONVar historicalData;
+JSONVar uiJson;
+JSONVar weeklyForecast; // Declare weeklyForecast as a global variable
+Averages forecastAverages;
+
 
 void setup() {
   // Start serial communication
   Serial.begin(9600);
+
+  // Connect to Wi-Fi
+  connectToWiFi();
+
+  for (int i = 0; i < 13; i++) {
+    pinMode(outputPins[i], OUTPUT);
+  }
+  digitalWrite(outputPins[8], HIGH);
+
+  systemTypes["wifiButton"] = 1;
+  systemTypes["analogButton"] = 2;
+  systemTypes["demoButton"] = 3;
 
   // Connect to Wi-Fi
   connectToWiFi();
@@ -67,53 +92,55 @@ void setup() {
   }
   Serial.println((jsonData));
 
-  JSONVar weeklyForecast = jsonData["weekly_forecast"];
-  JSONVar historicalData = jsonData["historical_precipitation"];
+  weeklyForecast = jsonData["weekly_forecast"];
+  historicalData = jsonData["historical_precipitation"];
+  Serial.print(historicalData);
 
   // Calculate averages
-  Averages historicalAverages = calculateAverages(historicalData);
-  Averages forecastAverages = calculateAverages(weeklyForecast);
-
-  Serial.println("Historical Averages:");
-  Serial.print("Avg Max Temp: ");
-  Serial.println(historicalAverages.avgMaxTemp);
-  Serial.print("Avg Min Temp: ");
-  Serial.println(historicalAverages.avgMinTemp);
-  Serial.print("Avg Precipitation: ");
-  Serial.println(historicalAverages.avgPrecipitation);
-
-  Serial.println("\nForecast Averages:");
-  Serial.print("Avg Max Temp: ");
-  Serial.println(forecastAverages.avgMaxTemp);
-  Serial.print("Avg Min Temp: ");
-  Serial.println(forecastAverages.avgMinTemp);
-  Serial.print("Avg Precipitation: ");
-  Serial.println(forecastAverages.avgPrecipitation);
+  historicalAverages = calculateAverages(historicalData);
+  forecastAverages = calculateAverages(weeklyForecast);
 
   String userInput = fetchUserInputFromServer();
-  JSONVar uiJson = JSON.parse(userInput);
+  uiJson = JSON.parse(userInput);
+
 }
 
 void loop() {
-  int SensorValue = analogRead(A0);
-  Serial.print("Sensor Value: ");
-  Serial.println(SensorValue);
-  float MoisturePercent = map(SensorValue, Value_dry, Value_wet, 0, 100);
-  if (MoisturePercent > 100)  //correct the percentage to 100% if read over 100.
-  {
-    Serial.print("Moisture Percent: ");
-    Serial.println("100 %");
-  } else if (MoisturePercent < 0)  //correct the percentage to 0% if read less than 0.
-  {
-    Serial.print("Moisture Percent: ");
-    Serial.println("0 %");
-  } else {
-    Serial.print("Moisture Percent: ");
-    Serial.print(MoisturePercent);
-    Serial.println("%");
-    delay(250);
+  
+  runSystem(forecastAverages, historicalAverages, uiJson);
+  if (demo){
+  delayWithDark(30000);
+  }else{
+    delayWithDark(84600000);
   }
-  delay(30000);
+  int zipCode = getZipCode();
+  if (zipCode == -1) {
+    Serial.println("Failed to retrieve ZIP code");
+  } else if (firstDigit(zipCode)!=4) {
+    zipCode = 48504;
+  }
+  String serverData = connectToServer(server, port, zipCode);
+  Serial.println("Received JSON data:");
+
+
+  // Parse the received JSON data
+  JSONVar jsonData = JSON.parse(serverData);
+
+  // JSON.typeof(jsonVar) can be used to get the type of the var
+  if (JSON.typeof(jsonData) == "undefined") {
+    Serial.println("Parsing input failed!");
+    return;
+  }
+
+  weeklyForecast = jsonData["weekly_forecast"];
+  historicalData = jsonData["historical_precipitation"];
+
+  // Calculate averages
+  historicalAverages = calculateAverages(historicalData);
+  forecastAverages = calculateAverages(weeklyForecast);
+
+  String userInput = fetchUserInputFromServer();
+  uiJson = JSON.parse(userInput);
 }
 
 void connectToWiFi() {
@@ -179,7 +206,6 @@ Averages calculateAverages(JSONVar weatherData) {
   int count = 0;
 
   for (size_t i = 3; i < weatherData.length()-2; i++) {
-    Serial.println(weatherData[i]);
     JSONVar day = weatherData[i];
     totalMaxTemp += (float)(double)day["max_temp"];
     totalMinTemp += (float)(double)day["min_temp"];
@@ -190,7 +216,7 @@ Averages calculateAverages(JSONVar weatherData) {
   Averages result;
   result.avgMaxTemp = totalMaxTemp / count;
   result.avgMinTemp = totalMinTemp / count;
-  result.avgPrecipitation = totalPrecipitation / count;
+  result.precipitation = totalPrecipitation;
   return result;
 }
 
@@ -275,41 +301,250 @@ String fetchUserInputFromServer() {
   }
 }
 
-int firstDigit(int n) 
-{ 
-    // Remove last digit from number 
-    // till only one digit is left 
+int firstDigit(int n) { 
     while (n >= 10)  
         n /= 10; 
-      
-    // return the first digit 
     return n; 
 } 
 
-float* zoneCalculator(Averages forecastAverages, JSONVar uiJson) {
+float* zoneCalculator(Averages forecastAverages, Averages historicalAverages, JSONVar uiJson) {
   static float zonePercent[9]; // Use static to ensure the array persists outside the function
 
+  if (demo) Serial.println("Starting zoneCalculator...");
+
+  // Retrieve master switch and temperature
   bool masterSwitch = (bool)(uiJson["master"]);
   float avgTemp = forecastAverages.avgMinTemp;
 
-  if (masterSwitch && avgTemp >= 32) { // Ensure the master switch is on and temperature is above freezing
-    for (int i = 0; i < 9; i++) {
-      int zoneStatus = (int)(uiJson["zones"][i]); // Check if zone is enabled
-      if (zoneStatus == 1) {
-        int sensorValue = analogRead(i); // Read sensor value for the zone
-        float moisturePercent = map(sensorValue, Value_dry, Value_wet, 0, 100);
+  if (demo) {
+    Serial.print("Master Switch: ");
+    Serial.println(masterSwitch ? "ON" : "OFF");
+    Serial.print("Average Temperature: ");
+    Serial.println(avgTemp);
+    Serial.print("systemContainer: ");
+    Serial.println(uiJson["systemContainer"]);
+  }
 
-        if (moisturePercent < 75) { // If moisture is below 75%
-          zonePercent[i] = moisturePercent * (double)uiJson["sensor"];
+  // Check if the master switch is ON and temperature is above freezing
+  if (masterSwitch && avgTemp >= 32 || ((String)uiJson["systemContainer"]).equals("demoButton")) {
+    if (((String)uiJson["systemContainer"]).equals("demoButton") && demo) {
+      Serial.println("BRRRRRR. ITS COLD BUT FOR TESTS ITS FINE");
+    }
+
+    if (demo) {
+      Serial.print("Historical Precipitation: ");
+      Serial.println(historicalAverages.precipitation);
+    }
+
+    if (historicalAverages.precipitation <= 10.5) {
+      if (demo) Serial.println("Historical precipitation is low. Processing zones...");
+      for (int i = 0; i < 9; i++) {
+        int zoneStatus = (int)(uiJson["zones"][i]); // Check if zone is enabled
+        if (demo) {
           Serial.print("Zone ");
           Serial.print(i);
-          Serial.print(" adjusted moisture: ");
-          Serial.println(zonePercent[i]);
+          Serial.print(" status: ");
+          Serial.println(zoneStatus == 1 ? "ENABLED" : "DISABLED");
         }
+
+        if (zoneStatus == 1) {
+          int sensorValue = analogRead(i); // Read sensor value for the zone
+          if (demo) {
+            Serial.print("Zone ");
+            Serial.print(i);
+            Serial.print(" sensor value: ");
+            Serial.println(sensorValue);
+          }
+
+          // Map sensor value to moisture percentage
+          float moisturePercent = map(sensorValue, Value_dry, Value_wet, 0, 100);
+          if (demo) {
+            Serial.print("Zone ");
+            Serial.print(i);
+            Serial.print(" moisture percentage: ");
+            Serial.println(moisturePercent);
+          }
+
+          if ((forecastAverages.precipitation < 0.75) || (moisturePercent < 40)) {
+            if (demo) {
+              Serial.print("Forecast precipitation is low. Checking moisture for Zone ");
+              Serial.println(i);
+            }
+
+            if (moisturePercent < 75) {
+              // Calculate adjusted moisture percentage
+              zonePercent[i] = (1 - (moisturePercent/100)) * (double)uiJson["sensor"];
+              if (demo) {
+                Serial.print("Zone ");
+                Serial.print(i);
+                Serial.print(" adjusted moisture: ");
+                Serial.println(zonePercent[i]);
+                
+              } else if (demo) {
+                Serial.print("Zone ");
+                Serial.print(i);
+                Serial.println(" moisture is too high. Skipping adjustment.");
+              }
+            } else if (demo) {
+              zonePercent[i] = 0;
+              Serial.print("Zone ");
+              Serial.print(i);
+              Serial.println(" moisture is too high. Skipping adjustment.");
+            }
+          } else if (demo) {
+
+            Serial.println("Forecast precipitation is sufficient. Skipping all zones.");
+          }
+        }
+      }
+    } else if (demo) {
+      for (int i = 0; i < 9; i++) {
+      zonePercent[i] = 0;
+    }
+      Serial.println("Historical precipitation is sufficient. Skipping zones.");
+    }
+  } else if (demo) {
+    for (int i = 0; i < 9; i++) {
+      zonePercent[i] = 0;
+    }
+    Serial.println("Master switch is OFF or temperature is too low. Skipping zone calculations.");
+  }
+
+  if (demo) Serial.println("Zone calculation completed.");
+  return zonePercent; // Return the array
+}
+
+void runSystem(Averages forecastAverages, Averages historicalAverages, JSONVar uiJson) {
+  Serial.println("Running System");
+  float* zonePercent = zoneCalculator(forecastAverages, historicalAverages, uiJson);
+  for (int i = 0; i <= 9; i++){
+    Serial.print(zonePercent[i]);Serial.print("=Zone");Serial.println(i);
+    if (zonePercent[i]!=0){
+      int zoneTime = (int) (zonePercent[i] * SprinklerTime);
+      Serial.print("zoneTime: ");Serial.println(zoneTime);
+      if (((String)uiJson["systemContainer"]).equals("demoButton")){
+        zoneTime = (int)(zoneTime/9);
+        Serial.print("zoneTime: ");Serial.println(zoneTime);
+      }
+
+      if (zoneTime>100){
+        Serial.println("turnOnSprinkler ");
+        turnOnSprinkler((String)uiJson["systemContainer"],i);
+        delayWithLight(zoneTime,i);
+        Serial.println("turnOffSprinkler ");
+        turnOffSprinkler((String)uiJson["systemContainer"],i);
       }
     }
   }
+}
 
-  return zonePercent; // Return the array
+void turnOnSprinkler(String systemContainer,int zone){
+  switch ((int)systemTypes[systemContainer]) {
+    case 1: 
+      {
+        // Create the URL dynamically based on the zone
+        const String url = String("https://api.rach.io/") + zone + "/public/device/on";
+        
+        // Initialize WiFiClient
+        WiFiClient client;
+        
+        // Connect to the server (ensure it's HTTPS or adjust for HTTP)
+        if (!client.connect("api.rach.io", 443)) {  // Using port 443 for HTTPS
+          Serial.println("Connection failed!");
+          return;
+        }
+
+        // Construct the HTTP request headers
+        String httpRequest = "PUT " + url + " HTTP/1.1\r\n";
+        httpRequest += "Host: api.rach.io\r\n";
+        httpRequest += "Accept: application/json\r\n";
+        httpRequest += "Content-Type: application/json\r\n";
+        httpRequest += "Connection: close\r\n\r\n";  // End of headers
+        
+        // Send the HTTP request
+        client.print(httpRequest);
+
+        // Read the server response
+        String response = "";
+        while (client.available()) {
+          response += (char)client.read();
+        }
+
+        // Print the response for debugging
+        Serial.println("Response:");
+        Serial.println(response);
+        
+        // Close the connection
+        client.stop();
+      }
+      break;
+
+    default:
+      digitalWrite(outputPins[zone], HIGH);
+      break;
+  }
+}
+
+void turnOffSprinkler(String systemContainer,int zone){
+  switch ((int)systemTypes[systemContainer]) {
+    case 1: 
+      {
+        // Create the URL dynamically based on the zone
+        const String url = String("https://api.rach.io/") + zone + "/public/device/off";
+        
+        // Initialize WiFiClient
+        WiFiClient client;
+        
+        // Connect to the server (ensure it's HTTPS or adjust for HTTP)
+        if (!client.connect("api.rach.io", 443)) {  // Using port 443 for HTTPS
+          Serial.println("Connection failed!");
+          return;
+        }
+
+        // Construct the HTTP request headers
+        String httpRequest = "PUT " + url + " HTTP/1.1\r\n";
+        httpRequest += "Host: api.rach.io\r\n";
+        httpRequest += "Accept: application/json\r\n";
+        httpRequest += "Content-Type: application/json\r\n";
+        httpRequest += "Connection: close\r\n\r\n";  // End of headers
+        
+        // Send the HTTP request
+        client.print(httpRequest);
+
+        // Read the server response
+        String response = "";
+        while (client.available()) {
+          response += (char)client.read();
+        }
+
+        // Print the response for debugging
+        Serial.println("Response:");
+        Serial.println(response);
+        
+        // Close the connection
+        client.stop();
+      }
+      break;
+
+    default:
+      digitalWrite(outputPins[zone], LOW);
+      break;
+  }
+}
+
+void delayWithLight(int time,int pin){
+  for (int i =0; i <=time;i++){
+    digitalWrite(pin, HIGH);
+    delay(1);
+  }
+}
+
+void delayWithDark(int time){
+  for (int i =0; i <=time;i++){
+    for (int pin = 0; pin < 13; pin++) {
+      digitalWrite(pin, LOW);
+    }
+    delay(1);
+  }
 }
 
