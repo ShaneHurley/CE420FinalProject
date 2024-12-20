@@ -53,7 +53,7 @@ function updateAndSendData() {
     fs.writeFileSync(filePath, JSON.stringify(status, null, 2));
 
     // Execute the `curl` POST command
-    const curlCommand = `curl -X POST http://shanehurley.com:8001/ -H "Content-Type: application/json" -d @${filePath}`;
+    const curlCommand = `curl -X POST http://shanehurley.com/api -H "Content-Type: application/json" -d @${filePath}`;
     exec(curlCommand, (error, stdout, stderr) => {
         if (error) {
             console.error(`Error executing curl: ${error.message}`);
