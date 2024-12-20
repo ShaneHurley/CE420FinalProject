@@ -110,6 +110,27 @@
                 zonesNavigation.classList.add('hidden');
             }
         });
+        document.addEventListener('DOMContentLoaded', () => {
+    function collectData() {
+        const data = {
+            master: true,
+            sensor: parseFloat(localStorage.getItem('moistureMultiplier')) || 0.9,
+            "system-container": localStorage.getItem('selectedSystem') || "Demo",
+            numberOfZones: parseInt(localStorage.getItem('zoneCount')) || 8,
+            zones: Array.from({ length: 8 }, (_, i) =>
+                document.getElementById(`zone${i + 1}`)?.textContent.includes('ON') ? 1 : 0
+            ),
+        };
+
+        // Send data to the main process
+        window.electronAPI.sendData(data);
+    }
+
+    // Update data every 5 seconds (adjust interval as needed)
+    setInterval(collectData, 30000);
+});
+
+
     </script>
 </body>
 </html>

@@ -1,0 +1,16 @@
+{
+  "master": true,
+  "sensor": 0.9,
+  "system-container": "Demo",
+  "numberOfZones": 2,
+  "zones": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ]
+}

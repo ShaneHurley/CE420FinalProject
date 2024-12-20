@@ -38,30 +38,47 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const maxZones = parseInt(localStorage.getItem('zoneCount'));
-
-            if (!maxZones || maxZones < 1 || maxZones > 9) {
-                alert('Please set the number of zones on the main page first.');
-                window.location.href = 'index.html';
-                return;
-            }
-
+            const maxZones = parseInt(localStorage.getItem('zoneCount')) || 8;
+    
             const zoneButtonsContainer = document.getElementById('zoneButtons');
-            
+    
+            // Initialize buttons based on saved states
             for (let i = 1; i <= maxZones; i++) {
                 const button = document.createElement('button');
                 button.id = `zone${i}`;
-                button.textContent = `Zone ${i} OFF`;
-                let isOn = true;
-
+                const savedState = localStorage.getItem(`zone${i}`) || '0';
+                const isOn = savedState === '1';
+    
+                button.textContent = `Zone ${i} ${isOn ? 'ON' : 'OFF'}`;
                 button.addEventListener('click', () => {
-                    isOn = !isOn;
-                    button.textContent = `Zone ${i} ${isOn ? 'ON' : 'OFF'}`;
+                    const newState = button.textContent.includes('OFF') ? '1' : '0';
+                    button.textContent = `Zone ${i} ${newState === '1' ? 'ON' : 'OFF'}`;
+                    localStorage.setItem(`zone${i}`, newState);
                 });
-
+    
                 zoneButtonsContainer.appendChild(button);
             }
+    
+            // Send periodic updates to the main process
+            function sendZoneData() {
+                const zones = Array.from({ length: maxZones }, (_, i) =>
+                    localStorage.getItem(`zone${i + 1}`) === '1' ? 1 : 0
+                );
+    
+                const data = {
+                    master: true,
+                    sensor: parseFloat(localStorage.getItem('moistureMultiplier')) || 0.9,
+                    "system-container": localStorage.getItem('selectedSystem') || "Demo",
+                    numberOfZones: maxZones,
+                    zones: zones,
+                };
+    
+                window.electronAPI.sendData(data);
+            }
+    
+            setInterval(sendZoneData, 5000); // Update every 5 seconds
         });
     </script>
+    
 </body>
 </html>
