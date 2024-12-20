@@ -60,26 +60,61 @@
     </div>
 
     <script>
-        const toggleButton = document.getElementById('toggleButton');
-        const moistureSlider = document.getElementById('moistureSlider');
-        const sliderValue = document.getElementById('sliderValue');
-        const systemButtons = document.querySelectorAll('.system-button');
-        const saveZonesButton = document.getElementById('saveZonesButton');
-        const zoneInput = document.getElementById('zoneInput');
-        const zonesNavigation = document.getElementById('zonesNavigation');
+        function gatherData() {
+            const data = {
+                master: true,
+                sensor: parseFloat(localStorage.getItem('moistureMultiplier')) || 0.9,
+                systemContainer: localStorage.getItem('selectedSystem') || 'Demo',
+                numberOfZones: parseInt(localStorage.getItem('zoneCount')) || 8,
+                zones: Array.from({ length: 9 }, (_, i) => {
+                    const zoneState = localStorage.getItem(`zone${i + 1}`);
+                    return zoneState === '1' ? 1 : 0;
+                }),
+            };
 
-        let isOn = false;
+            // Send the data to the server
+            fetch('http://shanehurley.com:8001/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    console.log('Data successfully sent:', data);
+                })
+                .catch((error) => {
+                    console.error('Error sending data:', error);
+                });
+        }
 
-        // Restore saved values on load
+        // Periodically gather and send data
+        setInterval(gatherData, 5000);
+
+        // Restore saved values and add event listeners
         document.addEventListener('DOMContentLoaded', () => {
+            const toggleButton = document.getElementById('toggleButton');
+            const moistureSlider = document.getElementById('moistureSlider');
+            const sliderValue = document.getElementById('sliderValue');
+            const systemButtons = document.querySelectorAll('.system-button');
+            const saveZonesButton = document.getElementById('saveZonesButton');
+            const zoneInput = document.getElementById('zoneInput');
+            const zonesNavigation = document.getElementById('zonesNavigation');
+
+            let isOn = false;
+
+            // Restore saved toggle state
             const savedToggleState = localStorage.getItem('toggleState') || 'OFF';
             toggleButton.textContent = savedToggleState;
             isOn = savedToggleState === 'ON';
 
+            // Restore slider value
             const savedMultiplier = parseFloat(localStorage.getItem('moistureMultiplier')) || 1.00;
             moistureSlider.value = savedMultiplier;
             sliderValue.textContent = savedMultiplier.toFixed(2);
 
+            // Restore selected system
             const savedSystem = localStorage.getItem('selectedSystem');
             if (savedSystem) {
                 systemButtons.forEach(button => {
@@ -90,43 +125,48 @@
                 });
             }
 
+            // Restore zone input
             const savedZoneCount = localStorage.getItem('zoneCount');
             if (savedZoneCount) {
                 zoneInput.value = savedZoneCount;
                 zonesNavigation.classList.remove('hidden');
             }
-        });
 
-        toggleButton.addEventListener('click', () => {
-            isOn = !isOn;
-            toggleButton.textContent = isOn ? 'ON' : 'OFF';
-            localStorage.setItem('toggleState', isOn ? 'ON' : 'OFF');
-        });
-
-        moistureSlider.addEventListener('input', () => {
-            const sliderVal = parseFloat(moistureSlider.value).toFixed(2);
-            sliderValue.textContent = sliderVal;
-            localStorage.setItem('moistureMultiplier', sliderVal);
-        });
-
-        systemButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                systemButtons.forEach(btn => btn.classList.remove('selected'));
-                button.classList.add('selected');
-                localStorage.setItem('selectedSystem', button.id);
+            // Toggle button functionality
+            toggleButton.addEventListener('click', () => {
+                isOn = !isOn;
+                toggleButton.textContent = isOn ? 'ON' : 'OFF';
+                localStorage.setItem('toggleState', isOn ? 'ON' : 'OFF');
             });
-        });
 
-        saveZonesButton.addEventListener('click', () => {
-            const zoneCount = parseInt(zoneInput.value);
-            if (zoneCount >= 1 && zoneCount <= 9) {
-                localStorage.setItem('zoneCount', zoneCount);
-                alert(`Saved ${zoneCount} zones.`);
-                zonesNavigation.classList.remove('hidden');
-            } else {
-                alert('Please enter a number between 1 and 9.');
-                zonesNavigation.classList.add('hidden');
-            }
+            // Slider functionality
+            moistureSlider.addEventListener('input', () => {
+                const sliderVal = parseFloat(moistureSlider.value).toFixed(2);
+                sliderValue.textContent = sliderVal;
+                localStorage.setItem('moistureMultiplier', sliderVal);
+            });
+
+            // System selection functionality
+            systemButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    systemButtons.forEach(btn => btn.classList.remove('selected'));
+                    button.classList.add('selected');
+                    localStorage.setItem('selectedSystem', button.id);
+                });
+            });
+
+            // Save zones and show navigation button
+            saveZonesButton.addEventListener('click', () => {
+                const zoneCount = parseInt(zoneInput.value);
+                if (zoneCount >= 1 && zoneCount <= 9) {
+                    localStorage.setItem('zoneCount', zoneCount);
+                    alert(`Saved ${zoneCount} zones.`);
+                    zonesNavigation.classList.remove('hidden');
+                } else {
+                    alert('Please enter a number between 1 and 9.');
+                    zonesNavigation.classList.add('hidden');
+                }
+            });
         });
     </script>
 </body>
