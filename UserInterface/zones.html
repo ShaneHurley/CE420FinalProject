@@ -35,27 +35,11 @@
     </div>
 
     <script>
-        function gatherData() {
-            const maxZones = parseInt(localStorage.getItem('zoneCount')) || 8;
-            const data = {
-                master: true,
-                sensor: parseFloat(localStorage.getItem('moistureMultiplier')) || 0.9,
-                systemContainer: localStorage.getItem('selectedSystem') || 'Demo',
-                numberOfZones: maxZones,
-                zones: Array.from({ length: maxZones }, (_, i) => {
-                    const zoneState = localStorage.getItem(`zone${i + 1}`);
-                    return zoneState === '1' ? 1 : 0;
-                }),
-            };
-
-            if (window.electronAPI && typeof window.electronAPI.sendData === 'function') {
-                window.electronAPI.sendData(data);
-                console.log('Data sent to main process:', data); // Debugging log
+        function notifyUpdate() {
+            if (window.electronAPI && typeof window.electronAPI.updateData === 'function') {
+                window.electronAPI.updateData();
             }
         }
-
-        // Periodically gather and send data
-        setInterval(gatherData, 5000);
 
         document.addEventListener('DOMContentLoaded', () => {
             const maxZones = parseInt(localStorage.getItem('zoneCount')) || 8;
@@ -72,6 +56,7 @@
                     const newState = button.textContent.includes('OFF') ? '1' : '0';
                     button.textContent = `Zone ${i} ${newState === '1' ? 'ON' : 'OFF'}`;
                     localStorage.setItem(`zone${i}`, newState);
+                    notifyUpdate();
                 });
 
                 zoneButtonsContainer.appendChild(button);

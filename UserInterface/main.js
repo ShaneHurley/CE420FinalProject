@@ -4,7 +4,6 @@ const fs = require('fs');
 const { exec } = require('child_process');
 
 let mainWindow;
-let currentStatus = {};
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -36,22 +35,24 @@ app.on('window-all-closed', () => {
     }
 });
 
-// Listen for data updates from renderer processes
-ipcMain.on('send-data', (event, data) => {
-    console.log('Data received from renderer:', data); // Debug log
-    currentStatus = data;
-});
+function updateAndSendData() {
+    // Gather data from `localStorage`
+    const status = {
+        master: true,
+        sensor: parseFloat(localStorage.getItem('moistureMultiplier')) || 0.9,
+        systemContainer: localStorage.getItem('selectedSystem') || 'Demo',
+        numberOfZones: parseInt(localStorage.getItem('zoneCount')) || 8,
+        zones: Array.from({ length: 9 }, (_, i) => {
+            const zoneState = localStorage.getItem(`zone${i + 1}`);
+            return zoneState === '1' ? 1 : 0;
+        }),
+    };
 
-// Function to send the JSON data
-function sendData() {
-    if (Object.keys(currentStatus).length === 0) {
-        console.warn('No data received from renderer process yet.');
-        return;
-    }
-
+    // Write to `status.json`
     const filePath = path.join(__dirname, 'status.json');
-    fs.writeFileSync(filePath, JSON.stringify(currentStatus, null, 2));
+    fs.writeFileSync(filePath, JSON.stringify(status, null, 2));
 
+    // Execute the `curl` POST command
     const curlCommand = `curl -X POST http://shanehurley.com:8001/ -H "Content-Type: application/json" -d @${filePath}`;
     exec(curlCommand, (error, stdout, stderr) => {
         if (error) {
@@ -65,8 +66,7 @@ function sendData() {
     });
 }
 
-// Automatically send data every 5 seconds
-setInterval(() => {
-    console.log('Sending data to the server:', currentStatus); // Debug log
-    sendData();
-}, 5000);
+// Listener for updates from renderer process
+ipcMain.on('update-data', () => {
+    updateAndSendData();
+});
