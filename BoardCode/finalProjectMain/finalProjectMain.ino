@@ -48,11 +48,10 @@ void setup() {
 
   // Connect to the server and fetch JSON data
   int zipCode = getZipCode();
-  if (zipCode != -1) {
-    Serial.print("ZIP Code: ");
-    Serial.println(zipCode);
-  } else {
+  if (zipCode == -1) {
     Serial.println("Failed to retrieve ZIP code");
+  } else if (firstDigit(zipCode)!=4) {
+    zipCode = 48504;
   }
   String serverData = connectToServer(server, port, zipCode);
   Serial.println("Received JSON data:");
@@ -90,6 +89,9 @@ void setup() {
   Serial.println(forecastAverages.avgMinTemp);
   Serial.print("Avg Precipitation: ");
   Serial.println(forecastAverages.avgPrecipitation);
+
+  String userInput = fetchUserInputFromServer();
+  JSONVar uiJson = JSON.parse(userInput);
 }
 
 void loop() {
@@ -176,7 +178,8 @@ Averages calculateAverages(JSONVar weatherData) {
   float totalPrecipitation = 0;
   int count = 0;
 
-  for (size_t i = 0; i < weatherData.length(); i++) {
+  for (size_t i = 3; i < weatherData.length()-2; i++) {
+    Serial.println(weatherData[i]);
     JSONVar day = weatherData[i];
     totalMaxTemp += (float)(double)day["max_temp"];
     totalMinTemp += (float)(double)day["min_temp"];
@@ -191,13 +194,10 @@ Averages calculateAverages(JSONVar weatherData) {
   return result;
 }
 
-//float[] zoneCalculator(JSONVar weatherData, Zones current){
-
-//}
 int getZipCode() {
   if (client.connect("ip-api.com", 80)) {
     Serial.println("Connected to IP Geolocation API via HTTP");
-
+    
     // Send the HTTP request
     client.println("GET /json HTTP/1.1");
     client.println("Host: ip-api.com");
@@ -217,18 +217,13 @@ int getZipCode() {
     client.stop(); // Close the connection
 
     // Parse the response for the ZIP code
-    Serial.println("Response:");
-    Serial.println(response);
 
     int zipIndex = response.indexOf('"zip"');
     if (zipIndex != -1) {
-      int start = response.indexOf("zip") + 6; // Start of ZIP code
-      int end = start+5;             // End of ZIP code
-      Serial.println(start);
-      Serial.println(end);
-      String zipCode = response.substring(start, end);     // Extract the ZIP code
-      Serial.println("ZIP Code: " + zipCode);
-      return zipCode.toInt();                              // Convert to integer
+      int start = response.indexOf("zip") + 6;
+      int end = start+5;
+      String zipCode = response.substring(start, end);
+      return zipCode.toInt();
     } else {
       Serial.println("ZIP code not found in the response.");
       return -1;
@@ -239,5 +234,82 @@ int getZipCode() {
   }
 }
 
+String fetchUserInputFromServer() {
+  const char* host = "shanehurley.com";
+  int port = 8001;
 
+  if (client.connect(host, port)) {
+    Serial.println("Connected to user input server");
+    
+    // Send HTTP GET request
+    String url = "/"; // Adjust this path if needed
+    client.println("GET " + url + " HTTP/1.1");
+    client.println("Host: " + String(host));
+    client.println("Connection: close");
+    client.println();
+
+    // Wait for server response
+    while (!client.available()) {
+      delay(100);
+    }
+
+    // Read response
+    String response = "";
+    while (client.available()) {
+      response += char(client.read());
+    }
+
+    client.stop();
+
+    // Extract JSON payload from the HTTP response
+    int jsonStart = response.indexOf("\r\n\r\n");
+    if (jsonStart != -1) {
+      return response.substring(jsonStart + 4); // Return the JSON part
+    } else {
+      Serial.println("Failed to parse response from user input server");
+      return "{}";
+    }
+  } else {
+    Serial.println("Connection to user input server failed");
+    return "{}"; // Return empty JSON if connection fails
+  }
+}
+
+int firstDigit(int n) 
+{ 
+    // Remove last digit from number 
+    // till only one digit is left 
+    while (n >= 10)  
+        n /= 10; 
+      
+    // return the first digit 
+    return n; 
+} 
+
+float* zoneCalculator(Averages forecastAverages, JSONVar uiJson) {
+  static float zonePercent[9]; // Use static to ensure the array persists outside the function
+
+  bool masterSwitch = (bool)(uiJson["master"]);
+  float avgTemp = forecastAverages.avgMinTemp;
+
+  if (masterSwitch && avgTemp >= 32) { // Ensure the master switch is on and temperature is above freezing
+    for (int i = 0; i < 9; i++) {
+      int zoneStatus = (int)(uiJson["zones"][i]); // Check if zone is enabled
+      if (zoneStatus == 1) {
+        int sensorValue = analogRead(i); // Read sensor value for the zone
+        float moisturePercent = map(sensorValue, Value_dry, Value_wet, 0, 100);
+
+        if (moisturePercent < 75) { // If moisture is below 75%
+          zonePercent[i] = moisturePercent * (double)uiJson["sensor"];
+          Serial.print("Zone ");
+          Serial.print(i);
+          Serial.print(" adjusted moisture: ");
+          Serial.println(zonePercent[i]);
+        }
+      }
+    }
+  }
+
+  return zonePercent; // Return the array
+}
 
