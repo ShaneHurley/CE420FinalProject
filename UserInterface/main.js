@@ -11,7 +11,7 @@ function createWindow() {
         height: 400,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
-            contextIsolation: true, // Ensure security
+            contextIsolation: true,
             nodeIntegration: false,
         },
     });
@@ -35,38 +35,28 @@ app.on('window-all-closed', () => {
     }
 });
 
-// Listen for zone data from the renderer process
-ipcMain.on('send-data', (event, data) => {
+function gatherData() {
+    const status = {
+        master: true,
+        sensor: parseFloat(localStorage.getItem('moistureMultiplier')) || 0.9,
+        systemContainer: localStorage.getItem('selectedSystem') || 'Demo',
+        numberOfZones: parseInt(localStorage.getItem('zoneCount')) || 8,
+        zones: Array.from({ length: 9 }, (_, i) => {
+            const zoneState = localStorage.getItem(`zone${i + 1}`);
+            return zoneState === '1' ? 1 : 0;
+        }),
+    };
+
     const filePath = path.join(__dirname, 'status.json');
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    fs.writeFileSync(filePath, JSON.stringify(status, null, 2));
 
     const curlCommand = `curl -X POST http://shanehurley.com:8001/ -H "Content-Type: application/json" -d @${filePath}`;
     exec(curlCommand, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error executing curl: ${error.message}`);
-            return;
-        }
-        console.log(`Curl output: ${stdout}`);
-        if (stderr) {
-            console.error(`Curl errors: ${stderr}`);
-        }
+        if (error) console.error(`Error: ${error.message}`);
+        if (stdout) console.log(`Output: ${stdout}`);
+        if (stderr) console.error(`Stderr: ${stderr}`);
     });
-});
+}
 
-// IPC listener for data from renderer process
-ipcMain.on('send-data', (event, data) => {
-    const filePath = path.join(__dirname, 'status.json');
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-
-    const curlCommand = `curl -X POST http://shanehurley.com:8001/ -H "Content-Type: application/json" -d @${filePath}`;
-    exec(curlCommand, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error executing curl: ${error.message}`);
-            return;
-        }
-        console.log(`Curl output: ${stdout}`);
-        if (stderr) {
-            console.error(`Curl errors: ${stderr}`);
-        }
-    });
-});
+// Automatically send data every 5 seconds
+setInterval(gatherData, 5000);

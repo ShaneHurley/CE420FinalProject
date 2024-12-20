@@ -29,9 +29,7 @@
 </head>
 <body>
     <h1>Zone Toggles</h1>
-    <div class="zone-buttons" id="zoneButtons">
-        <!-- Zone buttons will be generated dynamically -->
-    </div>
+    <div class="zone-buttons" id="zoneButtons"></div>
     <div class="navigation-container">
         <a href="index.html"><button>Return</button></a>
     </div>
@@ -39,46 +37,24 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const maxZones = parseInt(localStorage.getItem('zoneCount')) || 8;
-    
             const zoneButtonsContainer = document.getElementById('zoneButtons');
-    
-            // Initialize buttons based on saved states
+
             for (let i = 1; i <= maxZones; i++) {
                 const button = document.createElement('button');
                 button.id = `zone${i}`;
                 const savedState = localStorage.getItem(`zone${i}`) || '0';
                 const isOn = savedState === '1';
-    
+
                 button.textContent = `Zone ${i} ${isOn ? 'ON' : 'OFF'}`;
                 button.addEventListener('click', () => {
                     const newState = button.textContent.includes('OFF') ? '1' : '0';
                     button.textContent = `Zone ${i} ${newState === '1' ? 'ON' : 'OFF'}`;
                     localStorage.setItem(`zone${i}`, newState);
                 });
-    
+
                 zoneButtonsContainer.appendChild(button);
             }
-    
-            // Send periodic updates to the main process
-            function sendZoneData() {
-                const zones = Array.from({ length: maxZones }, (_, i) =>
-                    localStorage.getItem(`zone${i + 1}`) === '1' ? 1 : 0
-                );
-    
-                const data = {
-                    master: true,
-                    sensor: parseFloat(localStorage.getItem('moistureMultiplier')) || 0.9,
-                    "system-container": localStorage.getItem('selectedSystem') || "Demo",
-                    numberOfZones: maxZones,
-                    zones: zones,
-                };
-    
-                window.electronAPI.sendData(data);
-            }
-    
-            setInterval(sendZoneData, 5000); // Update every 5 seconds
         });
     </script>
-    
 </body>
 </html>
