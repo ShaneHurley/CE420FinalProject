@@ -43,7 +43,7 @@
     </div>
 
     <div class="system-container">
-        <h2>Select System</h2>
+        <h2>Select System using</h2>
         <button class="system-button" id="demoButton">Demo</button>
         <button class="system-button" id="wifiButton">WiFi System</button>
         <button class="system-button" id="analogButton">Analog System</button>
@@ -60,74 +60,26 @@
     </div>
 
     <script>
-        const toggleButton = document.getElementById('toggleButton');
-        const moistureSlider = document.getElementById('moistureSlider');
-        const sliderValue = document.getElementById('sliderValue');
-        const systemButtons = document.querySelectorAll('.system-button');
-        const saveZonesButton = document.getElementById('saveZonesButton');
-        const zoneInput = document.getElementById('zoneInput');
-        const zonesNavigation = document.getElementById('zonesNavigation');
+        function gatherData() {
+            const data = {
+                master: true,
+                sensor: parseFloat(localStorage.getItem('moistureMultiplier')) || 0.9,
+                systemContainer: localStorage.getItem('selectedSystem') || 'Demo',
+                numberOfZones: parseInt(localStorage.getItem('zoneCount')) || 8,
+                zones: Array.from({ length: 9 }, (_, i) => {
+                    const zoneState = localStorage.getItem(`zone${i + 1}`);
+                    return zoneState === '1' ? 1 : 0;
+                }),
+            };
 
-        let isOn = false;
-
-        // Restore saved values on load
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedToggleState = localStorage.getItem('toggleState') || 'OFF';
-            toggleButton.textContent = savedToggleState;
-            isOn = savedToggleState === 'ON';
-
-            const savedMultiplier = parseFloat(localStorage.getItem('moistureMultiplier')) || 1.00;
-            moistureSlider.value = savedMultiplier;
-            sliderValue.textContent = savedMultiplier.toFixed(2);
-
-            const savedSystem = localStorage.getItem('selectedSystem');
-            if (savedSystem) {
-                systemButtons.forEach(button => {
-                    button.classList.remove('selected');
-                    if (button.id === savedSystem) {
-                        button.classList.add('selected');
-                    }
-                });
+            if (window.electronAPI && typeof window.electronAPI.sendData === 'function') {
+                window.electronAPI.sendData(data);
+                console.log('Data sent to main process:', data); // Debugging log
             }
+        }
 
-            const savedZoneCount = localStorage.getItem('zoneCount');
-            if (savedZoneCount) {
-                zoneInput.value = savedZoneCount;
-                zonesNavigation.classList.remove('hidden');
-            }
-        });
-
-        toggleButton.addEventListener('click', () => {
-            isOn = !isOn;
-            toggleButton.textContent = isOn ? 'ON' : 'OFF';
-            localStorage.setItem('toggleState', isOn ? 'ON' : 'OFF');
-        });
-
-        moistureSlider.addEventListener('input', () => {
-            const sliderVal = parseFloat(moistureSlider.value).toFixed(2);
-            sliderValue.textContent = sliderVal;
-            localStorage.setItem('moistureMultiplier', sliderVal);
-        });
-
-        systemButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                systemButtons.forEach(btn => btn.classList.remove('selected'));
-                button.classList.add('selected');
-                localStorage.setItem('selectedSystem', button.id);
-            });
-        });
-
-        saveZonesButton.addEventListener('click', () => {
-            const zoneCount = parseInt(zoneInput.value);
-            if (zoneCount >= 1 && zoneCount <= 9) {
-                localStorage.setItem('zoneCount', zoneCount);
-                alert(`Saved ${zoneCount} zones.`);
-                zonesNavigation.classList.remove('hidden');
-            } else {
-                alert('Please enter a number between 1 and 9.');
-                zonesNavigation.classList.add('hidden');
-            }
-        });
+        // Periodically gather and send data
+        setInterval(gatherData, 5000);
     </script>
 </body>
 </html>

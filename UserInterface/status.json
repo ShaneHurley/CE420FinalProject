@@ -1,10 +1,11 @@
 {
   "master": true,
-  "sensor": 0.9,
-  "system-container": "Demo",
+  "sensor": 0.69,
+  "systemContainer": "wifiButton",
   "numberOfZones": 3,
   "zones": [
-    0,
+    1,
+    1,
     0,
     0,
     0,
